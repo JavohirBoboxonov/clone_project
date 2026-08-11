@@ -1,0 +1,14 @@
+fastapi
+sqlalchemy
+argon2-cffi
+python-dotenv
+uvicorn
+asyncpg
+alembic
+passlib[argon2-cffi]
+pyjwt
+pydantic[email]
+python-multipart
+cachetools
+expiringdict
+fastapi-mail

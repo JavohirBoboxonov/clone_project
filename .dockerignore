@@ -1,0 +1,28 @@
+# Git va muhit fayllari
+.git
+.gitignore
+.env
+*.local
+
+# Python kesh va virtual muhitlar
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Test va qoplama (coverage) natijalari
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE va muharrir sozlamalari
+.vscode/
+.idea/
+
+# Docker fayllarining o'zi
+Dockerfile
+docker-compose.yml
+README.md
