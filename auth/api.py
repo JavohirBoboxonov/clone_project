@@ -7,15 +7,20 @@ from fastapi import HTTPException, APIRouter, Depends, UploadFile, File, Form
 from config.models import User
 from config.database import get_db, AsyncSession
 from sqlalchemy import select
-from auth.function import (verify_password, 
-    get_password_hash, create_access_token, 
+from auth.function import (
+    verify_password,
+    get_password_hash, 
+    create_access_token,
     create_refresh_token,
     authenticate_user
 )
+from cachetools import TTLCache
+import random
 from auth.function import oauth2_bearer, get_current_user, save_image, PROFILE_IMAGES_DIR
 from datetime import timedelta, datetime, timezone
 import jwt
 from typing import Annotated
+from config.tasks import send_reset_code_task
 from expiringdict import ExpiringDict
 router = APIRouter(
     prefix="/auth",
@@ -119,3 +124,63 @@ async def logout(
         raise HTTPException(status_code=401, detail="Token yaroqsiz")
 
     return {"detail": "Muvaffaqiyatli chiqildi"}
+
+reset_code_cache = TTLCache(maxsize=1000, ttl=180)
+
+
+@router.post("/forgot-password", status_code=200)
+async def forgot_password(
+    email: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Bu email ro'yxatdan o'tmagan")
+
+    code = str(random.randint(100000, 999999))
+    reset_code_cache[email] = code
+
+    send_reset_code_task.delay(email, code)
+
+    return {"detail": "Kodingiz emailga yuborildi"}
+
+@router.post("/verify_code", status_code=200)
+async def verify_code(
+    email: str=Form(...),
+    code: str=Form(...),
+):
+
+    cached_code = reset_code_cache.get(email)
+
+    if not cached_code:
+        raise HTTPException(status_code=400, detail="Kod muddati tugagan yoki yuborilmagan")
+    
+    if cached_code != code:
+        raise HTTPException(status_code=400, detail="Kod no`to`gri")
+    
+    reset_code_cache[f"verified:{email}"] = True
+
+    return {"detail": "Kod tasdiqlandi, yangi parol kiriting"}
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(
+    email: str = Form(...),
+    new_password: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    if not reset_code_cache.get(f"verified:{email}"):
+        raise HTTPException(status_code=400, detail="Avval kodni tasdiqlang")
+    
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    user.password = get_password_hash(new_password)
+    await db.commit()
+    reset_code_cache.pop(email, None)
+    reset_code_cache.pop(f"verified:{email}", None)
+    
+    return {"detail": "Parol muvaffaqiyatli yangilandi"}

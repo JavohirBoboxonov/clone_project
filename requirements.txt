@@ -12,3 +12,5 @@ python-multipart
 cachetools
 expiringdict
 fastapi-mail
+celery
+redis
