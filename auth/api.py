@@ -9,7 +9,7 @@ from config.database import get_db, AsyncSession
 from sqlalchemy import select
 from auth.function import (
     verify_password,
-    get_password_hash, 
+    get_password_hash,
     create_access_token,
     create_refresh_token,
     authenticate_user
@@ -20,8 +20,8 @@ from auth.function import oauth2_bearer, get_current_user, save_image, PROFILE_I
 from datetime import timedelta, datetime, timezone
 import jwt
 from typing import Annotated
-from config.tasks import send_reset_code_task
 from expiringdict import ExpiringDict
+from config.tasks import send_reset_code_task
 router = APIRouter(
     prefix="/auth",
     tags=['auth']
@@ -141,7 +141,6 @@ async def forgot_password(
 
     code = str(random.randint(100000, 999999))
     reset_code_cache[email] = code
-
     send_reset_code_task.delay(email, code)
 
     return {"detail": "Kodingiz emailga yuborildi"}
@@ -156,10 +155,10 @@ async def verify_code(
 
     if not cached_code:
         raise HTTPException(status_code=400, detail="Kod muddati tugagan yoki yuborilmagan")
-    
+
     if cached_code != code:
         raise HTTPException(status_code=400, detail="Kod no`to`gri")
-    
+
     reset_code_cache[f"verified:{email}"] = True
 
     return {"detail": "Kod tasdiqlandi, yangi parol kiriting"}
@@ -172,15 +171,15 @@ async def reset_password(
 ):
     if not reset_code_cache.get(f"verified:{email}"):
         raise HTTPException(status_code=400, detail="Avval kodni tasdiqlang")
-    
+
     result = await db.execute(select(User).filter(User.email == email))
     user = result.scalars().first()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
     user.password = get_password_hash(new_password)
     await db.commit()
     reset_code_cache.pop(email, None)
     reset_code_cache.pop(f"verified:{email}", None)
-    
+
     return {"detail": "Parol muvaffaqiyatli yangilandi"}
