@@ -23,7 +23,7 @@ from typing import Annotated
 from expiringdict import ExpiringDict
 from config.tasks import send_reset_code_task
 router = APIRouter(
-    prefix="/auth",
+    prefix="/users",
     tags=['auth']
 )
 username = User.username
@@ -183,3 +183,13 @@ async def reset_password(
     reset_code_cache.pop(f"verified:{email}", None)
 
     return {"detail": "Parol muvaffaqiyatli yangilandi"}
+
+@router.get("/users/profile", response_model=UserResponse)
+async def user_profile(current_user: dict = Depends(get_current_user)):
+    return {
+        "user_id": current_user.get("id") or current_user.get("user_id"),
+        "username": current_user.get("username", ""),
+        "email": current_user.get("email", ""),
+        "profile_picture": current_user.get("profile_picture"),
+        "is_active": current_user.get("is_active", True),
+    }

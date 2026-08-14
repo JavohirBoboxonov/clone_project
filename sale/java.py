@@ -17,8 +17,6 @@ router = APIRouter(
 )
 db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
-
-
 @router.get("/products/")
 async def get_all_products(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0)):
     query = "SELECT * FROM products ORDER BY product_id LIMIT :limit OFFSET :offset"
