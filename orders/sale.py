@@ -147,6 +147,13 @@ async def get_order(
         select(Order).filter(Order.order_id == order_id, Order.user_id == current_user['user_id'])
     )
     order = result.scalars().first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+
+    if not order: raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+
+    is_owner = str(order.user_id) == str(current_user['user_id'])
+    is_admin = current_user.get('is_staff') ==True
+
+    if not is_owner and not is_admin:
+        raise  HTTPException(status_code=403, detail="Bu ma`lumotni olish uchun huquqingiz yo`q")
+
     return order
