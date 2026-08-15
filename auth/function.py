@@ -13,7 +13,7 @@ import shutil
 import uuid
 
 pwd_context = CryptContext(schemes=['argon2'], deprecated='auto')
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/users/login")
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")

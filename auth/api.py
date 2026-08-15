@@ -23,7 +23,7 @@ from typing import Annotated
 from expiringdict import ExpiringDict
 from config.tasks import send_reset_code_task
 router = APIRouter(
-    prefix="/users",
+    prefix="/auth",
     tags=['auth']
 )
 username = User.username
@@ -40,7 +40,9 @@ db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 @router.post("/register",response_model=UserResponse, status_code=201)
 async def register_user(
-        username: str =Form(...),
+        username: str=Form(...),
+        first_name: str=Form(...),
+        last_name: str=Form(),
         email: str=Form(...),
         password: str=Form(...),
         profile_picture:UploadFile=File(None),
@@ -54,6 +56,8 @@ async def register_user(
 
     new_user = User(
         username = username,
+        first_name=first_name,
+        last_name=last_name,
         email=email,
         password=get_password_hash(password),
         profile_picture=save_image(profile_picture, PROFILE_IMAGES_DIR)
@@ -95,8 +99,12 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
 
     if not user:
         raise HTTPException(status_code=400, detail="Username yoki parol xato")
-    access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=timedelta(minutes=ACCESS_TOKEN_LIFETIME))
-    refresh_token = create_refresh_token(data={"sub": str(user.user_id)}, expires_delta=timedelta(days=REFRESH_TOKEN_LIFETIME))
+    access_token = create_access_token(
+        data={"sub": str(user.user_id)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_LIFETIME))
+    refresh_token = create_refresh_token(
+        data={"sub": str(user.user_id)},
+        expires_delta=timedelta(days=REFRESH_TOKEN_LIFETIME))
 
     return {
         "access_token": access_token,
@@ -184,7 +192,7 @@ async def reset_password(
 
     return {"detail": "Parol muvaffaqiyatli yangilandi"}
 
-@router.get("/users/profile", response_model=UserResponse)
+@router.get("/profile", response_model=UserResponse)
 async def user_profile(current_user: dict = Depends(get_current_user)):
     return {
         "user_id": current_user.get("id") or current_user.get("user_id"),
@@ -193,3 +201,29 @@ async def user_profile(current_user: dict = Depends(get_current_user)):
         "profile_picture": current_user.get("profile_picture"),
         "is_active": current_user.get("is_active", True),
     }
+@router.post("/paymet", response_model=UserResponse)
+async def pull_the_packet(
+    amount: int = Form(...),
+    db: AsyncSession = Depends(get_db), 
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="Balancega kiritilgan ma`lumot noto`g`ri")
+
+        result=await db.execute(select(User).filter(User.user_id == current_user["user_id"]))
+        user = result.scalars().first()
+
+        if not result.scalars().first()
+            raise HTTPException(status_code=400, detail="Bunday user yo`q")
+
+        user.balance += amount
+        await db.commit()
+        await db.refresh(user)
+
+        return HTTPException(
+            status_code=200,
+            detail="Balans muvafaqiyatli to`ldirildi"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
